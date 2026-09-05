@@ -1,0 +1,266 @@
+:root {
+  --trello-blue: #0079BF;
+  --trello-blue-dark: #026AA7;
+  --text: #172B4D;
+  --muted: #6B778C;
+  --border: #DFE1E6;
+  --bg-hover: #F4F5F7;
+  --green: #61BD4F;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: #FFFFFF;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input[type="text"], textarea, select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid var(--border);
+  border-radius: 3px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+}
+
+input[type="text"]:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--trello-blue);
+}
+
+textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+button {
+  border: none;
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--trello-blue);
+  color: #FFFFFF;
+}
+
+button:hover {
+  background: var(--trello-blue-dark);
+}
+
+button.secondary {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+button.secondary:hover {
+  background: var(--border);
+}
+
+button.danger {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+  padding: 4px 8px;
+}
+
+button.danger:hover {
+  background: var(--bg-hover);
+  color: #B04632;
+}
+
+#template-select-wrap, #add-item-wrap {
+  display: flex;
+  gap: 6px;
+}
+
+#template-select-wrap select { flex: 1; }
+#add-item-wrap input { flex: 1; }
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#items-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 3px;
+}
+
+#items-list li:hover { background: var(--bg-hover); }
+
+#items-list li span {
+  flex: 1;
+}
+
+#items-list li input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+#templates-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+#templates-list li span {
+  color: var(--text);
+}
+
+.empty-hint {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 4px;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+/* --- Multiple checklists with nested sub-tasks --- */
+
+.checklist-block {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.checklist-header .checklist-name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-pct {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 32px;
+}
+
+.progress-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+  transition: width 0.15s ease;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 3px;
+}
+
+.item-row:hover { background: var(--bg-hover); }
+
+.item-row .item-name { flex: 1; }
+
+.expand-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 4px;
+  width: 18px;
+  cursor: pointer;
+}
+
+.expand-btn:hover { background: var(--border); }
+
+.subitems-wrap {
+  margin-left: 26px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subitem-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.subitem-row:hover { background: var(--bg-hover); }
+
+.subitem-row .item-name { flex: 1; color: var(--text); }
+
+.add-subitem-row {
+  display: flex;
+  gap: 6px;
+  margin-left: 26px;
+  padding-left: 10px;
+}
+
+.add-subitem-row input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.add-subitem-row button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.add-item-row {
+  display: flex;
+  gap: 6px;
+}
+
+.add-item-row input { flex: 1; }

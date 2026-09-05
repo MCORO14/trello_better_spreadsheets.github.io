@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Checklist Personalizada — Conector</title>
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+</head>
+<body>
+<script>
+var ICON = './icons/checklist-icon.svg';
+
+function getChecklists(t) {
+  return t.get('card', 'shared', 'checklists').then(function (cls) {
+    return cls || [];
+  });
+}
+
+// Counts leaves across every checklist on the card: an item WITH sub-tasks
+// contributes its sub-tasks, an item WITHOUT sub-tasks contributes itself.
+function totalProgress(checklists) {
+  var done = 0, total = 0;
+  checklists.forEach(function (cl) {
+    (cl.items || []).forEach(function (item) {
+      if (item.subitems && item.subitems.length > 0) {
+        item.subitems.forEach(function (si) {
+          total++;
+          if (si.checked) done++;
+        });
+      } else {
+        total++;
+        if (item.checked) done++;
+      }
+    });
+  });
+  return { done: done, total: total };
+}
+
+TrelloPowerUp.initialize({
+
+  // Badge on the front of the card (compact "done/total" counter)
+  'card-badges': function (t, options) {
+    return getChecklists(t).then(function (checklists) {
+      var p = totalProgress(checklists);
+      if (p.total === 0) return [];
+      return [{
+        text: p.done + '/' + p.total,
+        color: p.done === p.total ? 'green' : 'blue'
+      }];
+    });
+  },
+
+  // Badge inside the card detail view (percentage), opens the checklists on click
+  'card-detail-badges': function (t, options) {
+    return getChecklists(t).then(function (checklists) {
+      var p = totalProgress(checklists);
+      if (p.total === 0) return [];
+      var pct = Math.round((p.done / p.total) * 100);
+      return [{
+        title: 'Checklists personalizadas',
+        text: pct + '% completado',
+        color: pct === 100 ? 'green' : 'light-gray',
+        callback: function (t) {
+          return t.popup({
+            title: 'Checklists personalizadas',
+            url: './checklist.html',
+            height: 420
+          });
+        }
+      }];
+    });
+  },
+
+  // Button on each card that opens the custom checklists popup
+  'card-buttons': function (t, options) {
+    return [{
+      icon: ICON,
+      text: 'Checklists personalizadas',
+      callback: function (t) {
+        return t.popup({
+          title: 'Checklists personalizadas',
+          url: './checklist.html',
+          height: 420
+        });
+      }
+    }];
+  },
+
+  // Button on the board that opens the template manager popup
+  'board-buttons': function (t, options) {
+    return [{
+      icon: ICON,
+      text: 'Plantillas de checklist',
+      callback: function (t) {
+        return t.popup({
+          title: 'Plantillas de checklist',
+          url: './templates.html',
+          height: 420
+        });
+      }
+    }];
+  }
+
+});
+</script>
+</body>
+</html>

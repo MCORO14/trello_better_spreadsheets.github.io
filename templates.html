@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Plantillas de checklist</title>
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <input type="text" id="tpl-name-input" placeholder="Nombre de la plantilla">
+  <textarea id="tpl-items-input" placeholder="Un ítem por línea"></textarea>
+  <button id="save-tpl-btn">Guardar plantilla</button>
+
+  <hr>
+
+  <ul id="templates-list"></ul>
+  <div class="empty-hint" id="empty-hint" style="display:none;">
+    Todavía no hay plantillas. Creá la primera arriba.
+  </div>
+</div>
+
+<script>
+var t = TrelloPowerUp.iframe();
+
+function loadTemplates() {
+  return t.get('board', 'shared', 'templates').then(function (tpls) {
+    return tpls || [];
+  });
+}
+function saveTemplates(tpls) {
+  return t.set('board', 'shared', 'templates', tpls);
+}
+
+function render() {
+  loadTemplates().then(function (tpls) {
+    var ul = document.getElementById('templates-list');
+    var emptyHint = document.getElementById('empty-hint');
+    ul.innerHTML = '';
+
+    if (tpls.length === 0) {
+      emptyHint.style.display = 'block';
+      t.sizeTo('#app');
+      return;
+    }
+    emptyHint.style.display = 'none';
+
+    tpls.forEach(function (tpl, idx) {
+      var li = document.createElement('li');
+
+      var span = document.createElement('span');
+      span.textContent = tpl.name + ' — ' + tpl.items.length + ' ítems';
+
+      var del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = 'Eliminar';
+      del.onclick = function () {
+        tpls.splice(idx, 1);
+        saveTemplates(tpls).then(render);
+      };
+
+      li.appendChild(span);
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
+
+    t.sizeTo('#app');
+  });
+}
+
+document.getElementById('save-tpl-btn').onclick = function () {
+  var nameInput = document.getElementById('tpl-name-input');
+  var itemsInput = document.getElementById('tpl-items-input');
+  var name = nameInput.value.trim();
+  var items = itemsInput.value
+    .split('\n')
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean)
+    .map(function (s) { return { name: s }; });
+
+  if (!name || items.length === 0) return;
+
+  loadTemplates().then(function (tpls) {
+    tpls.push({ id: 'tpl-' + Date.now(), name: name, items: items });
+    nameInput.value = '';
+    itemsInput.value = '';
+    saveTemplates(tpls).then(render);
+  });
+};
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Checklists personalizadas</title>
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="checklists-container"></div>
+
+  <hr>
+
+  <div id="template-select-wrap">
+    <select id="template-select">
+      <option value="">Crear checklist desde plantilla…</option>
+    </select>
+    <button class="secondary" id="apply-template-btn">Crear</button>
+  </div>
+
+  <div id="add-checklist-wrap">
+    <input type="text" id="new-checklist-name" placeholder="Nombre de checklist nueva (ej: AYSA)">
+    <button id="add-checklist-btn">Añadir checklist</button>
+  </div>
+</div>
+
+<script>
+var t = TrelloPowerUp.iframe();
+
+// Which items are currently expanded to show their sub-tasks (id -> bool)
+var expandedState = {};
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function loadChecklists() {
+  return t.get('card', 'shared', 'checklists').then(function (cls) {
+    return cls || [];
+  });
+}
+function saveChecklists(cls) {
+  return t.set('card', 'shared', 'checklists', cls);
+}
+function loadTemplates() {
+  return t.get('board', 'shared', 'templates').then(function (tpls) {
+    return tpls || [];
+  });
+}
+
+// Progress counts leaves: an item WITH sub-tasks contributes its sub-tasks,
+// an item WITHOUT sub-tasks contributes itself.
+function progressOf(checklist) {
+  var done = 0, total = 0;
+  checklist.items.forEach(function (item) {
+    if (item.subitems && item.subitems.length > 0) {
+      item.subitems.forEach(function (si) {
+        total++;
+        if (si.checked) done++;
+      });
+    } else {
+      total++;
+      if (item.checked) done++;
+    }
+  });
+  return { done: done, total: total, pct: total ? Math.round((done / total) * 100) : 0 };
+}
+
+function syncParentChecked(item) {
+  if (item.subitems && item.subitems.length > 0) {
+    item.checked = item.subitems.every(function (si) { return si.checked; });
+  }
+}
+
+function render() {
+  loadChecklists().then(function (checklists) {
+    var container = document.getElementById('checklists-container');
+    container.innerHTML = '';
+
+    if (checklists.length === 0) {
+      var hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = 'Todavía no hay checklists en esta tarjeta. Creá una abajo.';
+      container.appendChild(hint);
+    }
+
+    checklists.forEach(function (checklist, clIdx) {
+      container.appendChild(buildChecklistBlock(checklist, clIdx, checklists));
+    });
+
+    t.sizeTo('#app');
+  });
+}
+
+function buildChecklistBlock(checklist, clIdx, checklists) {
+  var block = document.createElement('div');
+  block.className = 'checklist-block';
+
+  // Header: name + delete
+  var header = document.createElement('div');
+  header.className = 'checklist-header';
+
+  var name = document.createElement('div');
+  name.className = 'checklist-name';
+  name.textContent = checklist.name;
+
+  var delChecklistBtn = document.createElement('button');
+  delChecklistBtn.className = 'danger';
+  delChecklistBtn.textContent = 'Eliminar';
+  delChecklistBtn.onclick = function () {
+    checklists.splice(clIdx, 1);
+    saveChecklists(checklists).then(render);
+  };
+
+  header.appendChild(name);
+  header.appendChild(delChecklistBtn);
+  block.appendChild(header);
+
+  // Progress bar
+  var prog = progressOf(checklist);
+  var progRow = document.createElement('div');
+  progRow.className = 'progress-row';
+
+  var pctLabel = document.createElement('div');
+  pctLabel.className = 'progress-pct';
+  pctLabel.textContent = prog.pct + '%';
+
+  var track = document.createElement('div');
+  track.className = 'progress-bar-track';
+  var fill = document.createElement('div');
+  fill.className = 'progress-bar-fill';
+  fill.style.width = prog.pct + '%';
+  track.appendChild(fill);
+
+  progRow.appendChild(pctLabel);
+  progRow.appendChild(track);
+  block.appendChild(progRow);
+
+  // Items
+  var itemsWrap = document.createElement('div');
+  checklist.items.forEach(function (item, itemIdx) {
+    itemsWrap.appendChild(buildItemRow(item, itemIdx, checklist, checklists));
+  });
+  block.appendChild(itemsWrap);
+
+  // Add item
+  var addItemRow = document.createElement('div');
+  addItemRow.className = 'add-item-row';
+  var addItemInput = document.createElement('input');
+  addItemInput.type = 'text';
+  addItemInput.placeholder = 'Nuevo ítem…';
+  var addItemBtn = document.createElement('button');
+  addItemBtn.className = 'secondary';
+  addItemBtn.textContent = 'Agregar';
+  function addItem() {
+    var val = addItemInput.value.trim();
+    if (!val) return;
+    checklist.items.push({ id: uid(), name: val, checked: false, subitems: [] });
+    saveChecklists(checklists).then(render);
+  }
+  addItemBtn.onclick = addItem;
+  addItemInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') addItem();
+  });
+  addItemRow.appendChild(addItemInput);
+  addItemRow.appendChild(addItemBtn);
+  block.appendChild(addItemRow);
+
+  return block;
+}
+
+function buildItemRow(item, itemIdx, checklist, checklists) {
+  var wrap = document.createElement('div');
+
+  var row = document.createElement('div');
+  row.className = 'item-row';
+
+  var hasSubitems = item.subitems && item.subitems.length > 0;
+  var isExpanded = !!expandedState[item.id];
+
+  var expandBtn = document.createElement('button');
+  expandBtn.className = 'expand-btn';
+  expandBtn.textContent = hasSubitems ? (isExpanded ? '▾' : '▸') : '+';
+  expandBtn.title = hasSubitems ? 'Mostrar/ocultar subtareas' : 'Agregar subtarea';
+  expandBtn.onclick = function () {
+    expandedState[item.id] = !expandedState[item.id];
+    render();
+  };
+
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!item.checked;
+  cb.disabled = hasSubitems; // parent checkbox is derived from its sub-tasks
+  cb.onchange = function () {
+    item.checked = cb.checked;
+    saveChecklists(checklists);
+  };
+
+  var span = document.createElement('span');
+  span.className = 'item-name';
+  span.textContent = item.name;
+
+  var delBtn = document.createElement('button');
+  delBtn.className = 'danger';
+  delBtn.textContent = '✕';
+  delBtn.onclick = function () {
+    checklist.items.splice(itemIdx, 1);
+    saveChecklists(checklists).then(render);
+  };
+
+  row.appendChild(expandBtn);
+  row.appendChild(cb);
+  row.appendChild(span);
+  row.appendChild(delBtn);
+  wrap.appendChild(row);
+
+  if (isExpanded || hasSubitems) {
+    if (isExpanded) {
+      var subWrap = document.createElement('div');
+      subWrap.className = 'subitems-wrap';
+
+      item.subitems.forEach(function (subitem, subIdx) {
+        subWrap.appendChild(buildSubitemRow(subitem, subIdx, item, checklists));
+      });
+      wrap.appendChild(subWrap);
+
+      var addSubRow = document.createElement('div');
+      addSubRow.className = 'add-subitem-row';
+      var subInput = document.createElement('input');
+      subInput.type = 'text';
+      subInput.placeholder = 'Nueva subtarea…';
+      var subBtn = document.createElement('button');
+      subBtn.className = 'secondary';
+      subBtn.textContent = 'Agregar';
+      function addSub() {
+        var val = subInput.value.trim();
+        if (!val) return;
+        item.subitems = item.subitems || [];
+        item.subitems.push({ id: uid(), name: val, checked: false });
+        syncParentChecked(item);
+        saveChecklists(checklists).then(render);
+      }
+      subBtn.onclick = addSub;
+      subInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') addSub();
+      });
+      addSubRow.appendChild(subInput);
+      addSubRow.appendChild(subBtn);
+      wrap.appendChild(addSubRow);
+    }
+  }
+
+  return wrap;
+}
+
+function buildSubitemRow(subitem, subIdx, item, checklists) {
+  var row = document.createElement('div');
+  row.className = 'subitem-row';
+
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!subitem.checked;
+  cb.onchange = function () {
+    subitem.checked = cb.checked;
+    syncParentChecked(item);
+    saveChecklists(checklists).then(render);
+  };
+
+  var span = document.createElement('span');
+  span.className = 'item-name';
+  span.textContent = subitem.name;
+
+  var delBtn = document.createElement('button');
+  delBtn.className = 'danger';
+  delBtn.textContent = '✕';
+  delBtn.onclick = function () {
+    item.subitems.splice(subIdx, 1);
+    syncParentChecked(item);
+    saveChecklists(checklists).then(render);
+  };
+
+  row.appendChild(cb);
+  row.appendChild(span);
+  row.appendChild(delBtn);
+  return row;
+}
+
+function renderTemplateOptions() {
+  loadTemplates().then(function (tpls) {
+    var sel = document.getElementById('template-select');
+    sel.innerHTML = '<option value="">Crear checklist desde plantilla…</option>';
+    tpls.forEach(function (tpl) {
+      var opt = document.createElement('option');
+      opt.value = tpl.id;
+      opt.textContent = tpl.name;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+document.getElementById('apply-template-btn').onclick = function () {
+  var tplId = document.getElementById('template-select').value;
+  if (!tplId) return;
+  Promise.all([loadTemplates(), loadChecklists()]).then(function (results) {
+    var tpls = results[0], checklists = results[1];
+    var tpl = tpls.filter(function (x) { return x.id === tplId; })[0];
+    if (!tpl) return;
+    var newItems = tpl.items.map(function (it) {
+      return { id: uid(), name: it.name, checked: false, subitems: [] };
+    });
+    checklists.push({ id: uid(), name: tpl.name, items: newItems });
+    document.getElementById('template-select').value = '';
+    saveChecklists(checklists).then(render);
+  });
+};
+
+document.getElementById('add-checklist-btn').onclick = function () {
+  var input = document.getElementById('new-checklist-name');
+  var name = input.value.trim();
+  if (!name) return;
+  loadChecklists().then(function (checklists) {
+    checklists.push({ id: uid(), name: name, items: [] });
+    input.value = '';
+    saveChecklists(checklists).then(render);
+  });
+};
+document.getElementById('new-checklist-name').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') document.getElementById('add-checklist-btn').click();
+});
+
+render();
+renderTemplateOptions();
+</script>
+</body>
+</html>
